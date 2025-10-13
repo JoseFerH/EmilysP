@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">LimitPhone</string>
+    <string name="device_admin_description">Esta aplicación necesita permisos de administrador para bloquear el dispositivo durante el horario de trabajo y ayudar a mantener un equilibrio saludable entre trabajo y descanso.</string>
+    <string name="work_mode">Modo Trabajo</string>
+    <string name="break_mode">Modo Descanso</string>
+    <string name="emergency_unlock">Desbloqueo de Emergencia</string>
+    <string name="settings">Configuración</string>
+    <string name="tutorial">Tutorial</string>
+    <string name="work_schedules">Horarios de Trabajo</string>
+    <string name="break_alarms">Alarmas de Descanso</string>
+    <string name="emergency_code">Código de Emergencia</string>
+    <string name="start_work">Iniciar Trabajo</string>
+    <string name="start_break">Iniciar Descanso</string>
+    <string name="end_break">Terminar Descanso</string>
+    <string name="unlock_device">Desbloquear Dispositivo</string>
+    <string name="device_locked">Dispositivo Bloqueado</string>
+    <string name="device_unlocked">Dispositivo Desbloqueado</string>
+    <string name="break_time_active">Tiempo de Descanso Activo</string>
+    <string name="work_time_active">Tiempo de Trabajo Activo</string>
+    <string name="free_time">Tiempo Libre</string>
+</resources>
