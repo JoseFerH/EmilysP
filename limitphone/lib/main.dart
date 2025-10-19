@@ -6,6 +6,12 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:async';
 
+/// Bandera para activar/desactivar las integraciones nativas de bloqueo.
+///
+/// Para la demostración actual se deshabilita cualquier llamada nativa y se
+/// utiliza únicamente la pantalla interna de bloqueo.
+const bool kUseNativeLocking = false;
+
 /// Canal de método para comunicación con código nativo
 const platform = MethodChannel('com.limitphone/lock');
 
@@ -32,15 +38,17 @@ class LockState {
     if (locked) {
       _startReopenTimer();
       _startNativeLockService();
-      _startScreenPinning();
     } else {
       _stopReopenTimer();
       _stopNativeLockService();
-      // NO desactivar Screen Pinning aquí, se hace manualmente en _checkPassword
     }
   }
 
   Future<void> _startNativeLockService() async {
+    if (!kUseNativeLocking) {
+      debugPrint('Bloqueo nativo deshabilitado: _startNativeLockService');
+      return;
+    }
     try {
       await platform.invokeMethod('startLockService');
       debugPrint('Servicio nativo de bloqueo iniciado');
@@ -52,6 +60,10 @@ class LockState {
   }
 
   Future<void> _stopNativeLockService() async {
+    if (!kUseNativeLocking) {
+      debugPrint('Bloqueo nativo deshabilitado: _stopNativeLockService');
+      return;
+    }
     try {
       await platform.invokeMethod('stopLockService');
       debugPrint('Servicio nativo de bloqueo detenido');
@@ -62,29 +74,10 @@ class LockState {
     }
   }
 
-  Future<void> _startScreenPinning() async {
-    try {
-      await platform.invokeMethod('startLockTask');
-      debugPrint('Screen Pinning activado');
-    } on PlatformException catch (e) {
-      debugPrint('Error de plataforma al activar Screen Pinning: ${e.message}');
-    } catch (e) {
-      debugPrint('Error al activar Screen Pinning: $e');
-    }
-  }
-
-  Future<void> stopScreenPinning() async {
-    try {
-      await platform.invokeMethod('stopLockTask');
-      debugPrint('Screen Pinning desactivado');
-    } on PlatformException catch (e) {
-      debugPrint('Error de plataforma al desactivar Screen Pinning: ${e.message}');
-    } catch (e) {
-      debugPrint('Error al desactivar Screen Pinning: $e');
-    }
-  }
-
   void _startReopenTimer() {
+    if (!kUseNativeLocking) {
+      return;
+    }
     _stopReopenTimer();
     // Intentar reabrir la app cada 3 segundos si está bloqueada
     reopenTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
@@ -100,6 +93,10 @@ class LockState {
   }
 
   void _bringAppToFront() {
+    if (!kUseNativeLocking) {
+      debugPrint('Bloqueo nativo deshabilitado: _bringAppToFront');
+      return;
+    }
     // Intentar traer la app al frente usando el servicio nativo
     try {
       platform.invokeMethod('bringToFront');
@@ -112,17 +109,6 @@ class LockState {
     _lockController.close();
     checkTimer?.cancel();
     reopenTimer?.cancel();
-  }
-}
-
-/// Funciones helper para Screen Pinning
-Future<bool> isScreenPinned() async {
-  try {
-    final result = await platform.invokeMethod('isInLockTaskMode');
-    return result ?? false;
-  } catch (e) {
-    debugPrint('Error al verificar Screen Pinning: $e');
-    return false;
   }
 }
 
@@ -415,23 +401,18 @@ class _LockScreenState extends State<LockScreen> {
       });
 
       try {
-        // PASO 1: Desactivar Screen Pinning PRIMERO (crítico)
-        debugPrint('🔓 Desactivando Screen Pinning...');
-        await platform.invokeMethod('stopLockTask');
-        await Future.delayed(const Duration(milliseconds: 500));
-        
-        // PASO 2: Restaurar las barras del sistema
+        // Restaurar las barras del sistema antes de mostrar la pantalla principal
         debugPrint('🔓 Restaurando barras del sistema...');
         SystemChrome.setEnabledSystemUIMode(
           SystemUiMode.edgeToEdge,
           overlays: SystemUiOverlay.values,
         );
-        
-        // PASO 3: Desbloquear la app
+
+        // Desbloquear la app
         debugPrint('🔓 Desbloqueando app...');
         LockState().setLocked(false);
-        
-        // PASO 4: Limpiar UI
+
+        // Limpiar UI
         _passwordController.clear();
         if (mounted) {
           setState(() {
@@ -439,10 +420,10 @@ class _LockScreenState extends State<LockScreen> {
             _isUnlocking = false;
           });
         }
-        
-        // PASO 5: Cancelar notificación persistente
+
+        // Cancelar notificación persistente
         await notificationsPlugin.cancel(888);
-        
+
         debugPrint('✅ Desbloqueo completado exitosamente');
         
         // Feedback de éxito
@@ -536,44 +517,6 @@ class _LockScreenState extends State<LockScreen> {
                       ),
                       const SizedBox(height: 24),
                       
-                      // Indicador de Screen Pinning
-                      FutureBuilder<bool>(
-                        future: isScreenPinned(),
-                        builder: (context, snapshot) {
-                          if (snapshot.data == true) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.push_pin,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Pantalla anclada',
-                                    style: TextStyle(
-                                      color: Colors.white.withOpacity(0.9),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                          return const SizedBox.shrink();
-                        },
-                      ),
                       const SizedBox(height: 24),
                       
                       // Hora actual
@@ -633,45 +576,6 @@ class _LockScreenState extends State<LockScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            FutureBuilder<bool>(
-                              future: isScreenPinned(),
-                              builder: (context, snapshot) {
-                                if (snapshot.data == true) {
-                                  return Container(
-                                    padding: const EdgeInsets.all(8),
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.withOpacity(0.3),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: Colors.orange.shade200,
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.info_outline,
-                                          color: Colors.orange.shade100,
-                                          size: 16,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            'Pantalla anclada. Espera unos segundos tras ingresar la contraseña.',
-                                            style: TextStyle(
-                                              color: Colors.orange.shade100,
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }
-                                return const SizedBox.shrink();
-                              },
-                            ),
                             TextField(
                               controller: _passwordController,
                               obscureText: _obscurePassword,
@@ -942,37 +846,6 @@ class _HomePageState extends State<HomePage> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
-
-            // Indicador de Screen Pinning activo
-            FutureBuilder<bool>(
-              future: isScreenPinned(),
-              builder: (context, snapshot) {
-                if (snapshot.data == true) {
-                  return Card(
-                    color: Colors.green[100],
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Icon(Icons.push_pin, color: Colors.green[700]),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              '📌 Screen Pinning activo',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green[900],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-                return const SizedBox.shrink();
-              },
-            ),
 
             if (!_hasExactAlarmPermission || !_hasNotificationPermission)
               Card(
@@ -1519,16 +1392,8 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _cancelAllAlarms() async {
     try {
-      // Primero desactivar Screen Pinning si está activo
-      final isPinned = await isScreenPinned();
-      if (isPinned) {
-        debugPrint('🔓 Desactivando Screen Pinning antes de cancelar alarmas...');
-        await platform.invokeMethod('stopLockTask');
-        await Future.delayed(const Duration(milliseconds: 300));
-      }
-      
       await notificationsPlugin.cancelAll();
-      
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('alarmsEnabled', false);
       
