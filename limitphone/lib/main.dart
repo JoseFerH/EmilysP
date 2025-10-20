@@ -12,6 +12,11 @@ import 'dart:async';
 /// utiliza únicamente la pantalla interna de bloqueo.
 const bool kUseNativeLocking = false;
 
+/// Número predeterminado de imágenes que se mostrarán en el carrusel de
+/// descanso. Modifica este valor para ajustar la cantidad de imágenes que
+/// deben cargarse desde `assets/tutorial/`.
+const int kTutorialImageCount = 5;
+
 /// Canal de método para comunicación con código nativo
 const platform = MethodChannel('com.limitphone/lock');
 
@@ -26,21 +31,34 @@ class LockState {
   LockState._internal();
 
   bool isLocked = false;
+  bool isBreakActive = false;
   Timer? checkTimer;
   Timer? reopenTimer;
   final StreamController<bool> _lockController = StreamController<bool>.broadcast();
+  final StreamController<bool> _breakController =
+      StreamController<bool>.broadcast();
   Stream<bool> get lockStream => _lockController.stream;
+  Stream<bool> get breakStream => _breakController.stream;
 
   void setLocked(bool locked) {
-    isLocked = locked;
-    _lockController.add(locked);
-    
+    if (isLocked != locked) {
+      isLocked = locked;
+      _lockController.add(locked);
+    }
+
     if (locked) {
       _startReopenTimer();
       _startNativeLockService();
     } else {
       _stopReopenTimer();
       _stopNativeLockService();
+    }
+  }
+
+  void setBreakActive(bool isActive) {
+    if (isBreakActive != isActive) {
+      isBreakActive = isActive;
+      _breakController.add(isActive);
     }
   }
 
@@ -107,6 +125,7 @@ class LockState {
 
   void dispose() {
     _lockController.close();
+    _breakController.close();
     checkTimer?.cancel();
     reopenTimer?.cancel();
   }
@@ -262,35 +281,46 @@ class _LimitPhoneAppState extends State<LimitPhoneApp> with WidgetsBindingObserv
       final workStartMinutes = workStartHour * 60 + workStartMinute;
       final workEndMinutes = workEndHour * 60 + workEndMinute;
       final breakStartMinutes = breakStartHour * 60 + breakStartMinute;
-      final breakEndMinutes = breakStartMinutes + breakDuration;
+      const totalMinutesInDay = 24 * 60;
+      final normalizedBreakEndMinutes =
+          (breakStartMinutes + breakDuration) % totalMinutesInDay;
+      final breakCrossesMidnight =
+          breakStartMinutes + breakDuration >= totalMinutesInDay;
 
-      // Determinar si debe estar bloqueado
-      bool shouldLock = false;
-
+      bool isWithinWorkSchedule;
       if (workStartMinutes <= workEndMinutes) {
         // Horario normal (no cruza medianoche)
-        if (currentMinutes >= workStartMinutes && currentMinutes < workEndMinutes) {
-          // Dentro del horario de trabajo, verificar si no está en descanso
-          if (currentMinutes < breakStartMinutes || currentMinutes >= breakEndMinutes) {
-            shouldLock = true;
-          }
-        }
+        isWithinWorkSchedule =
+            currentMinutes >= workStartMinutes && currentMinutes < workEndMinutes;
       } else {
         // Horario que cruza medianoche
-        if (currentMinutes >= workStartMinutes || currentMinutes < workEndMinutes) {
-          if (currentMinutes < breakStartMinutes || currentMinutes >= breakEndMinutes) {
-            shouldLock = true;
-          }
+        isWithinWorkSchedule =
+            currentMinutes >= workStartMinutes || currentMinutes < workEndMinutes;
+      }
+
+      bool isDuringBreak = false;
+      if (breakDuration > 0 && isWithinWorkSchedule) {
+        if (!breakCrossesMidnight) {
+          isDuringBreak = currentMinutes >= breakStartMinutes &&
+              currentMinutes < normalizedBreakEndMinutes;
+        } else {
+          isDuringBreak = currentMinutes >= breakStartMinutes ||
+              currentMinutes < normalizedBreakEndMinutes;
         }
       }
+
+      final bool shouldLock = isWithinWorkSchedule && !isDuringBreak;
+      final bool isBreakActive = isWithinWorkSchedule && isDuringBreak;
 
       debugPrint('Estado de bloqueo: $shouldLock');
       debugPrint('Hora actual: ${now.hour}:${now.minute}');
       debugPrint('Trabajo: $workStartHour:$workStartMinute - $workEndHour:$workEndMinute');
       debugPrint('Descanso: $breakStartHour:$breakStartMinute - ${breakDuration}min');
+      debugPrint('Descanso activo: $isBreakActive');
 
       LockState().setLocked(shouldLock);
-      
+      LockState().setBreakActive(isBreakActive);
+
       if (shouldLock) {
         await _showPersistentLockNotification();
       } else {
@@ -722,13 +752,199 @@ class _HomePageState extends State<HomePage> {
   bool _hasNotificationPermission = false;
   String _emergencyPassword = '123';
   final TextEditingController _passwordController = TextEditingController();
+  StreamSubscription<bool>? _breakSubscription;
+  bool _tutorialShownForCurrentBreak = false;
+  late final List<String> _tutorialImages;
 
   @override
   void initState() {
     super.initState();
+    _tutorialImages = List.generate(
+      kTutorialImageCount,
+      (index) => 'assets/tutorial/tutorial_${index + 1}.png',
+    );
     _restoreSystemUI();
     _checkPermissions();
     _loadSavedSettings();
+    _breakSubscription = LockState().breakStream.listen(_handleBreakChange);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleBreakChange(LockState().isBreakActive);
+    });
+  }
+
+  void _handleBreakChange(bool isOnBreak) {
+    if (!mounted) return;
+
+    if (isOnBreak) {
+      if (!_tutorialShownForCurrentBreak) {
+        _tutorialShownForCurrentBreak = true;
+        _showBreakTutorial();
+      }
+    } else {
+      _tutorialShownForCurrentBreak = false;
+    }
+  }
+
+  Future<void> _showBreakTutorial() async {
+    if (!mounted) return;
+
+    final pageController = PageController();
+    int currentPage = 0;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: Colors.black87,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              contentPadding: const EdgeInsets.all(16),
+              content: SizedBox(
+                width: MediaQuery.of(context).size.width * 0.8,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          '☕ Disfruta tu descanso',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          icon: const Icon(Icons.close, color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: SizedBox(
+                        height: 240,
+                        child: Stack(
+                          children: [
+                            PageView.builder(
+                              controller: pageController,
+                              itemCount: _tutorialImages.length,
+                              onPageChanged: (index) {
+                                setState(() {
+                                  currentPage = index;
+                                });
+                              },
+                              itemBuilder: (context, index) {
+                                return Container(
+                                  color: Colors.black,
+                                  alignment: Alignment.center,
+                                  child: Image.asset(
+                                    _tutorialImages[index],
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return const Center(
+                                        child: Text(
+                                          'Imagen no encontrada',
+                                          style: TextStyle(color: Colors.white70),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                            Positioned(
+                              left: 8,
+                              top: 0,
+                              bottom: 0,
+                              child: IconButton(
+                                onPressed: currentPage > 0
+                                    ? () {
+                                        pageController.previousPage(
+                                          duration: const Duration(milliseconds: 300),
+                                          curve: Curves.easeInOut,
+                                        );
+                                      }
+                                    : null,
+                                icon: Icon(
+                                  Icons.arrow_back_ios,
+                                  color: currentPage > 0
+                                      ? Colors.white
+                                      : Colors.white24,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 8,
+                              top: 0,
+                              bottom: 0,
+                              child: IconButton(
+                                onPressed: currentPage < _tutorialImages.length - 1
+                                    ? () {
+                                        pageController.nextPage(
+                                          duration: const Duration(milliseconds: 300),
+                                          curve: Curves.easeInOut,
+                                        );
+                                      }
+                                    : null,
+                                icon: Icon(
+                                  Icons.arrow_forward_ios,
+                                  color: currentPage < _tutorialImages.length - 1
+                                      ? Colors.white
+                                      : Colors.white24,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(
+                        _tutorialImages.length,
+                        (index) => AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: currentPage == index ? 12 : 8,
+                          height: currentPage == index ? 12 : 8,
+                          decoration: BoxDecoration(
+                            color:
+                                currentPage == index ? Colors.white : Colors.white38,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      child: const Text('¡Listo para continuar!'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    pageController.dispose();
   }
 
   void _restoreSystemUI() {
@@ -1425,6 +1641,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    _breakSubscription?.cancel();
     _passwordController.dispose();
     super.dispose();
   }
