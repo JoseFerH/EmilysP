@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:async';
+import 'dart:math' as math;
 
 /// Bandera para activar/desactivar las integraciones nativas de bloqueo.
 ///
@@ -15,7 +16,7 @@ const bool kUseNativeLocking = false;
 /// Número predeterminado de imágenes que se mostrarán en el carrusel de
 /// descanso. Modifica este valor para ajustar la cantidad de imágenes que
 /// deben cargarse desde `assets/tutorial/`.
-const int kTutorialImageCount = 5;
+const int kTutorialImageCount = 6;
 
 /// Canal de método para comunicación con código nativo
 const platform = MethodChannel('com.limitphone/lock');
@@ -788,163 +789,11 @@ class _HomePageState extends State<HomePage> {
   Future<void> _showBreakTutorial() async {
     if (!mounted) return;
 
-    final pageController = PageController();
-    int currentPage = 0;
-
     await showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: Colors.black87,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              contentPadding: const EdgeInsets.all(16),
-              content: SizedBox(
-                width: MediaQuery.of(context).size.width * 0.8,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          '☕ Disfruta tu descanso',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.of(context).maybePop(),
-                          icon: const Icon(Icons.close, color: Colors.white70),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: SizedBox(
-                        height: 240,
-                        child: Stack(
-                          children: [
-                            PageView.builder(
-                              controller: pageController,
-                              itemCount: _tutorialImages.length,
-                              onPageChanged: (index) {
-                                setState(() {
-                                  currentPage = index;
-                                });
-                              },
-                              itemBuilder: (context, index) {
-                                return Container(
-                                  color: Colors.black,
-                                  alignment: Alignment.center,
-                                  child: Image.asset(
-                                    _tutorialImages[index],
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Center(
-                                        child: Text(
-                                          'Imagen no encontrada',
-                                          style: TextStyle(color: Colors.white70),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-                            Positioned(
-                              left: 8,
-                              top: 0,
-                              bottom: 0,
-                              child: IconButton(
-                                onPressed: currentPage > 0
-                                    ? () {
-                                        pageController.previousPage(
-                                          duration: const Duration(milliseconds: 300),
-                                          curve: Curves.easeInOut,
-                                        );
-                                      }
-                                    : null,
-                                icon: Icon(
-                                  Icons.arrow_back_ios,
-                                  color: currentPage > 0
-                                      ? Colors.white
-                                      : Colors.white24,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              right: 8,
-                              top: 0,
-                              bottom: 0,
-                              child: IconButton(
-                                onPressed: currentPage < _tutorialImages.length - 1
-                                    ? () {
-                                        pageController.nextPage(
-                                          duration: const Duration(milliseconds: 300),
-                                          curve: Curves.easeInOut,
-                                        );
-                                      }
-                                    : null,
-                                icon: Icon(
-                                  Icons.arrow_forward_ios,
-                                  color: currentPage < _tutorialImages.length - 1
-                                      ? Colors.white
-                                      : Colors.white24,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        _tutorialImages.length,
-                        (index) => AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: currentPage == index ? 12 : 8,
-                          height: currentPage == index ? 12 : 8,
-                          decoration: BoxDecoration(
-                            color:
-                                currentPage == index ? Colors.white : Colors.white38,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      child: const Text('¡Listo para continuar!'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+      builder: (_) => BreakTutorialDialog(images: _tutorialImages),
     );
-
-    pageController.dispose();
   }
 
   void _restoreSystemUI() {
@@ -1644,5 +1493,207 @@ class _HomePageState extends State<HomePage> {
     _breakSubscription?.cancel();
     _passwordController.dispose();
     super.dispose();
+  }
+}
+
+class BreakTutorialDialog extends StatefulWidget {
+  const BreakTutorialDialog({required this.images, super.key});
+
+  final List<String> images;
+
+  @override
+  State<BreakTutorialDialog> createState() => _BreakTutorialDialogState();
+}
+
+class _BreakTutorialDialogState extends State<BreakTutorialDialog> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaSize = MediaQuery.of(context).size;
+    final maxDialogWidth = mediaSize.width * 0.95;
+    final maxDialogHeight = mediaSize.height * 0.9;
+    const aspectRatio = 16 / 9;
+    const double chromeHeight = 180;
+
+    double imageWidth = maxDialogWidth;
+    double imageHeight = imageWidth / aspectRatio;
+
+    final desiredHeight = imageHeight + chromeHeight;
+    if (desiredHeight > maxDialogHeight) {
+      final availableForImage = math.max(0.0, maxDialogHeight - chromeHeight);
+      if (availableForImage > 0) {
+        imageHeight = availableForImage;
+        imageWidth = imageHeight * aspectRatio;
+        if (imageWidth > maxDialogWidth) {
+          imageWidth = maxDialogWidth;
+          imageHeight = imageWidth / aspectRatio;
+        }
+      } else {
+        imageWidth = math.min(maxDialogWidth, maxDialogHeight);
+        imageHeight = imageWidth / aspectRatio;
+      }
+    }
+
+    final bool canGoBack = _currentPage > 0;
+    final bool canGoForward = _currentPage < widget.images.length - 1;
+
+    return Dialog(
+      backgroundColor: Colors.black87,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxDialogWidth,
+          maxHeight: maxDialogHeight,
+        ),
+        child: SizedBox(
+          width: imageWidth,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    '☕ Disfruta tu descanso',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: SizedBox(
+                  width: imageWidth,
+                  height: imageHeight,
+                  child: Stack(
+                    children: [
+                      PageView.builder(
+                        controller: _pageController,
+                        itemCount: widget.images.length,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _currentPage = index;
+                          });
+                        },
+                        itemBuilder: (context, index) {
+                          return Container(
+                            color: Colors.black,
+                            alignment: Alignment.center,
+                            child: Image.asset(
+                              widget.images[index],
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return const Center(
+                                  child: Text(
+                                    'Imagen no encontrada',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IconButton(
+                          padding: const EdgeInsets.all(16),
+                          iconSize: 28,
+                          splashRadius: 24,
+                          onPressed: canGoBack
+                              ? () {
+                                  _pageController.previousPage(
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                  );
+                                }
+                              : null,
+                          icon: Icon(
+                            Icons.arrow_back_ios,
+                            color: canGoBack ? Colors.white : Colors.white24,
+                          ),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: IconButton(
+                          padding: const EdgeInsets.all(16),
+                          iconSize: 28,
+                          splashRadius: 24,
+                          onPressed: canGoForward
+                              ? () {
+                                  _pageController.nextPage(
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeInOut,
+                                  );
+                                }
+                              : null,
+                          icon: Icon(
+                            Icons.arrow_forward_ios,
+                            color: canGoForward ? Colors.white : Colors.white24,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  widget.images.length,
+                  (index) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: _currentPage == index ? 12 : 8,
+                    height: _currentPage == index ? 12 : 8,
+                    decoration: BoxDecoration(
+                      color: _currentPage == index ? Colors.white : Colors.white38,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.blueAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+                onPressed: () => Navigator.of(context).maybePop(),
+                child: const Text('¡Listo para continuar!'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
