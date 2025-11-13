@@ -951,7 +951,7 @@ class _HomePageState extends State<HomePage> {
                                       : Colors.white38,
                                   shape: BoxShape.circle,
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16),
