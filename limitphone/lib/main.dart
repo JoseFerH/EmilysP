@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+
+import 'widgets/break_tutorial_dialog.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -789,12 +793,10 @@ class _HomePageState extends State<HomePage> {
   Future<void> _showBreakTutorial() async {
     if (!mounted) return;
 
-    final pageController = PageController();
-    int currentPage = 0;
-
     await showDialog(
       context: context,
       barrierDismissible: true,
+      builder: (_) => BreakTutorialDialog(images: _tutorialImages),
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setState) {
@@ -998,8 +1000,6 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
-
-    pageController.dispose();
   }
 
   void _restoreSystemUI() {
@@ -1701,3 +1701,4 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 }
+
