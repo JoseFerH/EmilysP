@@ -30,10 +30,10 @@ class _BreakTutorialDialogState extends State<BreakTutorialDialog> {
   @override
   Widget build(BuildContext context) {
     final mediaSize = MediaQuery.of(context).size;
-    final maxDialogWidth = mediaSize.width * 0.95;
-    final maxDialogHeight = mediaSize.height * 0.9;
+    final maxDialogWidth = mediaSize.width * 0.98;
+    final maxDialogHeight = mediaSize.height * 0.95;
     const aspectRatio = 16 / 9;
-    const double chromeHeight = 180;
+    const double chromeHeight = 150;
 
     double imageWidth = maxDialogWidth;
     double imageHeight = imageWidth / aspectRatio;
@@ -59,7 +59,7 @@ class _BreakTutorialDialogState extends State<BreakTutorialDialog> {
 
     return Dialog(
       backgroundColor: Colors.black87,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
       ),
@@ -69,7 +69,7 @@ class _BreakTutorialDialogState extends State<BreakTutorialDialog> {
           maxHeight: maxDialogHeight,
         ),
         child: SafeArea(
-          minimum: const EdgeInsets.all(24),
+          minimum: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: SizedBox(
             width: imageWidth,
             child: Column(
@@ -114,7 +114,7 @@ class _BreakTutorialDialogState extends State<BreakTutorialDialog> {
                               alignment: Alignment.center,
                               child: Image.asset(
                                 widget.images[index],
-                                fit: BoxFit.cover,
+                                fit: BoxFit.contain,
                                 errorBuilder: (context, error, stackTrace) {
                                   return const Center(
                                     child: Text(
