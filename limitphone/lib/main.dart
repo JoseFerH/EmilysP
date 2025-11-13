@@ -799,10 +799,6 @@ class _HomePageState extends State<HomePage> {
         return StatefulBuilder(
           builder: (context, setState) {
             final mediaSize = MediaQuery.of(context).size;
-            final maxDialogWidth = mediaSize.width * 0.95;
-            final maxDialogHeight = mediaSize.height * 0.9;
-            final dialogWidth = math.min(maxDialogWidth, mediaSize.width);
-
             return AlertDialog(
               backgroundColor: Colors.black87,
               shape: RoundedRectangleBorder(
@@ -813,159 +809,169 @@ class _HomePageState extends State<HomePage> {
                 horizontal: 16,
                 vertical: 24,
               ),
-              content: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: maxDialogWidth,
-                  maxHeight: maxDialogHeight,
-                ),
-                child: SizedBox(
-                  width: dialogWidth,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              content: LayoutBuilder(
+                builder: (context, dialogConstraints) {
+                  final maxWidth = mediaSize.width * 0.95;
+                  final maxHeight = mediaSize.height * 0.9;
+                  final dialogWidth = dialogConstraints.hasBoundedWidth
+                      ? math.min(maxWidth, dialogConstraints.maxWidth)
+                      : maxWidth;
+                  final dialogHeight = dialogConstraints.hasBoundedHeight
+                      ? math.min(maxHeight, dialogConstraints.maxHeight)
+                      : maxHeight;
+
+                  return SizedBox(
+                    width: dialogWidth,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: dialogHeight),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text(
-                            '☕ Disfruta tu descanso',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '☕ Disfruta tu descanso',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => Navigator.of(context).maybePop(),
+                                icon: const Icon(Icons.close, color: Colors.white70),
+                              ),
+                            ],
                           ),
-                          IconButton(
-                            onPressed: () => Navigator.of(context).maybePop(),
-                            icon: const Icon(Icons.close, color: Colors.white70),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Flexible(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: FittedBox(
-                            fit: BoxFit.contain,
-                            alignment: Alignment.center,
-                            child: SizedBox(
-                              width: dialogWidth,
-                              height: dialogWidth / (16 / 9),
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                PageView.builder(
-                                  controller: pageController,
-                                  itemCount: _tutorialImages.length,
-                                  onPageChanged: (index) {
-                                    setState(() {
-                                      currentPage = index;
-                                    });
-                                  },
-                                  itemBuilder: (context, index) {
-                                    return Container(
-                                      color: Colors.black,
-                                      alignment: Alignment.center,
-                                      child: Image.asset(
-                                        _tutorialImages[index],
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                          return const Center(
-                                            child: Text(
-                                              'Imagen no encontrada',
-                                              style: TextStyle(
-                                                color: Colors.white70,
-                                              ),
+                          const SizedBox(height: 12),
+                          Flexible(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: FittedBox(
+                                fit: BoxFit.contain,
+                                alignment: Alignment.center,
+                                child: SizedBox(
+                                  width: dialogWidth,
+                                  height: dialogWidth / (16 / 9),
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      PageView.builder(
+                                        controller: pageController,
+                                        itemCount: _tutorialImages.length,
+                                        onPageChanged: (index) {
+                                          setState(() {
+                                            currentPage = index;
+                                          });
+                                        },
+                                        itemBuilder: (context, index) {
+                                          return Container(
+                                            color: Colors.black,
+                                            alignment: Alignment.center,
+                                            child: Image.asset(
+                                              _tutorialImages[index],
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (context, error, stackTrace) {
+                                                return const Center(
+                                                  child: Text(
+                                                    'Imagen no encontrada',
+                                                    style: TextStyle(
+                                                      color: Colors.white70,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
                                             ),
                                           );
                                         },
                                       ),
-                                    );
-                                  },
-                                ),
-                                Positioned(
-                                  left: 8,
-                                  top: 0,
-                                  bottom: 0,
-                                  child: IconButton(
-                                    onPressed: currentPage > 0
-                                        ? () {
-                                            pageController.previousPage(
-                                              duration: const Duration(milliseconds: 300),
-                                              curve: Curves.easeInOut,
-                                            );
-                                          }
-                                        : null,
-                                    icon: Icon(
-                                      Icons.arrow_back_ios,
-                                      color: currentPage > 0
-                                          ? Colors.white
-                                          : Colors.white24,
-                                    ),
+                                      Positioned(
+                                        left: 8,
+                                        top: 0,
+                                        bottom: 0,
+                                        child: IconButton(
+                                          onPressed: currentPage > 0
+                                              ? () {
+                                                  pageController.previousPage(
+                                                    duration: const Duration(milliseconds: 300),
+                                                    curve: Curves.easeInOut,
+                                                  );
+                                                }
+                                              : null,
+                                          icon: Icon(
+                                            Icons.arrow_back_ios,
+                                            color: currentPage > 0
+                                                ? Colors.white
+                                                : Colors.white24,
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        right: 8,
+                                        top: 0,
+                                        bottom: 0,
+                                        child: IconButton(
+                                          onPressed:
+                                              currentPage < _tutorialImages.length - 1
+                                                  ? () {
+                                                      pageController.nextPage(
+                                                        duration: const Duration(milliseconds: 300),
+                                                        curve: Curves.easeInOut,
+                                                      );
+                                                    }
+                                                  : null,
+                                          icon: Icon(
+                                            Icons.arrow_forward_ios,
+                                            color: currentPage < _tutorialImages.length - 1
+                                                ? Colors.white
+                                                : Colors.white24,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Positioned(
-                                  right: 8,
-                                  top: 0,
-                                  bottom: 0,
-                                  child: IconButton(
-                                    onPressed:
-                                        currentPage < _tutorialImages.length - 1
-                                            ? () {
-                                                pageController.nextPage(
-                                                  duration: const Duration(milliseconds: 300),
-                                                  curve: Curves.easeInOut,
-                                                );
-                                              }
-                                            : null,
-                                    icon: Icon(
-                                      Icons.arrow_forward_ios,
-                                      color: currentPage < _tutorialImages.length - 1
-                                          ? Colors.white
-                                          : Colors.white24,
-                                    ),
-                                  ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(
+                              _tutorialImages.length,
+                              (index) => AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                width: currentPage == index ? 12 : 8,
+                                height: currentPage == index ? 12 : 8,
+                                decoration: BoxDecoration(
+                                  color: currentPage == index
+                                      ? Colors.white
+                                      : Colors.white38,
+                                  shape: BoxShape.circle,
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(
-                          _tutorialImages.length,
-                          (index) => AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            width: currentPage == index ? 12 : 8,
-                            height: currentPage == index ? 12 : 8,
-                            decoration: BoxDecoration(
-                              color: currentPage == index
-                                  ? Colors.white
-                                  : Colors.white38,
-                              shape: BoxShape.circle,
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.blueAccent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
                             ),
+                            onPressed: () => Navigator.of(context).maybePop(),
+                            child: const Text('¡Listo para continuar!'),
                           ),
-                        ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
-                          ),
-                        ),
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        child: const Text('¡Listo para continuar!'),
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
             );
           },
