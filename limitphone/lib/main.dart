@@ -1015,33 +1015,36 @@ class _HomePageState extends State<HomePage> {
       final plugin = notificationsPlugin
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
-      
-      if (plugin != null) {
-        final notificationPermission = await plugin.areNotificationsEnabled();
-        setState(() {
-          _hasNotificationPermission = notificationPermission ?? true;
-        });
 
-        if (!_hasNotificationPermission) {
-          final granted = await plugin.requestNotificationsPermission();
-          setState(() {
-            _hasNotificationPermission = granted ?? false;
-          });
-        }
-
-        final canSchedule = await plugin.canScheduleExactNotifications();
-        setState(() {
-          _hasExactAlarmPermission = canSchedule ?? false;
-        });
-
-        if (!_hasExactAlarmPermission) {
-          await plugin.requestExactAlarmsPermission();
-          final newPermission = await plugin.canScheduleExactNotifications();
-          setState(() {
-            _hasExactAlarmPermission = newPermission ?? false;
-          });
-        }
+      if (plugin == null) {
+        return;
       }
+
+      var hasNotificationPermission =
+          await plugin.areNotificationsEnabled() ?? true;
+
+      if (!hasNotificationPermission) {
+        hasNotificationPermission =
+            await plugin.requestNotificationsPermission() ?? false;
+      }
+
+      var hasExactAlarmPermission =
+          await plugin.canScheduleExactNotifications() ?? false;
+
+      if (!hasExactAlarmPermission) {
+        await plugin.requestExactAlarmsPermission();
+        hasExactAlarmPermission =
+            await plugin.canScheduleExactNotifications() ?? false;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _hasNotificationPermission = hasNotificationPermission;
+        _hasExactAlarmPermission = hasExactAlarmPermission;
+      });
     } catch (e) {
       debugPrint('Error al verificar permisos: $e');
     }
@@ -1049,7 +1052,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _loadSavedSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
     final workStartHour = prefs.getInt('workStartHour');
     final workStartMinute = prefs.getInt('workStartMinute');
     final workEndHour = prefs.getInt('workEndHour');
@@ -1058,6 +1061,10 @@ class _HomePageState extends State<HomePage> {
     final breakStartMinute = prefs.getInt('breakStartMinute');
     final breakDuration = prefs.getInt('breakDuration');
     final savedPassword = prefs.getString('emergencyPassword');
+
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       if (workStartHour != null && workStartMinute != null) {
