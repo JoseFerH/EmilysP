@@ -797,145 +797,162 @@ class _HomePageState extends State<HomePage> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            final mediaSize = MediaQuery.of(context).size;
             return AlertDialog(
               backgroundColor: Colors.black87,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
               contentPadding: const EdgeInsets.all(16),
-              content: SizedBox(
-                width: MediaQuery.of(context).size.width * 0.8,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              insetPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 24,
+              ),
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: mediaSize.width * 0.95,
+                  maxHeight: mediaSize.height * 0.9,
+                ),
+                child: SingleChildScrollView(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          '☕ Disfruta tu descanso',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.of(context).maybePop(),
-                          icon: const Icon(Icons.close, color: Colors.white70),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: SizedBox(
-                        height: 240,
-                        child: Stack(
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            PageView.builder(
-                              controller: pageController,
-                              itemCount: _tutorialImages.length,
-                              onPageChanged: (index) {
-                                setState(() {
-                                  currentPage = index;
-                                });
-                              },
-                              itemBuilder: (context, index) {
-                                return Container(
-                                  color: Colors.black,
-                                  alignment: Alignment.center,
-                                  child: Image.asset(
-                                    _tutorialImages[index],
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return const Center(
-                                        child: Text(
-                                          'Imagen no encontrada',
-                                          style: TextStyle(color: Colors.white70),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-                            Positioned(
-                              left: 8,
-                              top: 0,
-                              bottom: 0,
-                              child: IconButton(
-                                onPressed: currentPage > 0
-                                    ? () {
-                                        pageController.previousPage(
-                                          duration: const Duration(milliseconds: 300),
-                                          curve: Curves.easeInOut,
-                                        );
-                                      }
-                                    : null,
-                                icon: Icon(
-                                  Icons.arrow_back_ios,
-                                  color: currentPage > 0
-                                      ? Colors.white
-                                      : Colors.white24,
-                                ),
+                            const Text(
+                              '☕ Disfruta tu descanso',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Positioned(
-                              right: 8,
-                              top: 0,
-                              bottom: 0,
-                              child: IconButton(
-                                onPressed: currentPage < _tutorialImages.length - 1
-                                    ? () {
-                                        pageController.nextPage(
-                                          duration: const Duration(milliseconds: 300),
-                                          curve: Curves.easeInOut,
-                                        );
-                                      }
-                                    : null,
-                                icon: Icon(
-                                  Icons.arrow_forward_ios,
-                                  color: currentPage < _tutorialImages.length - 1
-                                      ? Colors.white
-                                      : Colors.white24,
-                                ),
-                              ),
+                            IconButton(
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              icon: const Icon(Icons.close, color: Colors.white70),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        _tutorialImages.length,
-                        (index) => AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          width: currentPage == index ? 12 : 8,
-                          height: currentPage == index ? 12 : 8,
-                          decoration: BoxDecoration(
-                            color:
-                                currentPage == index ? Colors.white : Colors.white38,
-                            shape: BoxShape.circle,
+                        const SizedBox(height: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: AspectRatio(
+                            aspectRatio: 16 / 9,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                PageView.builder(
+                                  controller: pageController,
+                                  itemCount: _tutorialImages.length,
+                                  onPageChanged: (index) {
+                                    setState(() {
+                                      currentPage = index;
+                                    });
+                                  },
+                                  itemBuilder: (context, index) {
+                                    return Container(
+                                      color: Colors.black,
+                                      alignment: Alignment.center,
+                                      child: Image.asset(
+                                        _tutorialImages[index],
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return const Center(
+                                            child: Text(
+                                              'Imagen no encontrada',
+                                              style: TextStyle(
+                                                color: Colors.white70,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    );
+                                  },
+                                ),
+                                Positioned(
+                                  left: 8,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: IconButton(
+                                    onPressed: currentPage > 0
+                                        ? () {
+                                            pageController.previousPage(
+                                              duration: const Duration(milliseconds: 300),
+                                              curve: Curves.easeInOut,
+                                            );
+                                          }
+                                        : null,
+                                    icon: Icon(
+                                      Icons.arrow_back_ios,
+                                      color: currentPage > 0
+                                          ? Colors.white
+                                          : Colors.white24,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 8,
+                                  top: 0,
+                                  bottom: 0,
+                                  child: IconButton(
+                                    onPressed: currentPage < _tutorialImages.length - 1
+                                        ? () {
+                                            pageController.nextPage(
+                                              duration: const Duration(milliseconds: 300),
+                                              curve: Curves.easeInOut,
+                                            );
+                                          }
+                                        : null,
+                                    icon: Icon(
+                                      Icons.arrow_forward_ios,
+                                      color: currentPage < _tutorialImages.length - 1
+                                          ? Colors.white
+                                          : Colors.white24,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            _tutorialImages.length,
+                            (index) => AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              width: currentPage == index ? 12 : 8,
+                              height: currentPage == index ? 12 : 8,
+                              decoration: BoxDecoration(
+                                color: currentPage == index
+                                    ? Colors.white
+                                    : Colors.white38,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      child: const Text('¡Listo para continuar!'),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.blueAccent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                          ),
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          child: const Text('¡Listo para continuar!'),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             );
