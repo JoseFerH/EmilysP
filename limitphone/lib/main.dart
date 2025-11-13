@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -757,15 +758,13 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _passwordController = TextEditingController();
   StreamSubscription<bool>? _breakSubscription;
   bool _tutorialShownForCurrentBreak = false;
-  late final List<String> _tutorialImages;
+  final List<String> _tutorialImages = <String>[];
+  bool _isLoadingTutorialImages = false;
 
   @override
   void initState() {
     super.initState();
-    _tutorialImages = List.generate(
-      kTutorialImageCount,
-      (index) => 'assets/tutorial/tutorial_${index + 1}.png',
-    );
+    _loadTutorialImages();
     _restoreSystemUI();
     _checkPermissions();
     _loadSavedSettings();
@@ -791,11 +790,100 @@ class _HomePageState extends State<HomePage> {
   Future<void> _showBreakTutorial() async {
     if (!mounted) return;
 
+    if (_tutorialImages.isEmpty && !_isLoadingTutorialImages) {
+      await _loadTutorialImages();
+    }
+
+    if (_tutorialImages.isEmpty) {
+      debugPrint('No hay imágenes de tutorial disponibles para mostrar.');
+      return;
+    }
+
     await showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (_) => BreakTutorialDialog(images: _tutorialImages),
+      builder: (_) => BreakTutorialDialog(
+        images: List<String>.unmodifiable(_tutorialImages),
+      ),
     );
+  }
+
+  Future<void> _loadTutorialImages() async {
+    if (_isLoadingTutorialImages) {
+      return;
+    }
+    _isLoadingTutorialImages = true;
+    try {
+      final manifestContent = await rootBundle.loadString('AssetManifest.json');
+      final Map<String, dynamic> manifestMap =
+          json.decode(manifestContent) as Map<String, dynamic>;
+      final tutorialPaths = manifestMap.keys
+          .where((assetPath) =>
+              assetPath.startsWith('assets/tutorial') &&
+              assetPath.contains(
+                RegExp('tutorial_\\d+\\.png', caseSensitive: false),
+              ))
+          .toList()
+        ..sort(_compareTutorialAssets);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _tutorialImages
+          ..clear()
+          ..addAll(
+            tutorialPaths.isNotEmpty ? tutorialPaths : _fallbackTutorialImages(),
+          );
+      });
+    } catch (error, stackTrace) {
+      debugPrint(
+        'No se pudieron cargar las imágenes del tutorial automáticamente: $error\n$stackTrace',
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _tutorialImages
+          ..clear()
+          ..addAll(_fallbackTutorialImages());
+      });
+    } finally {
+      _isLoadingTutorialImages = false;
+    }
+  }
+
+  List<String> _fallbackTutorialImages() {
+    final Set<String> seen = <String>{};
+    final List<String> fallback = <String>[];
+
+    void addPath(String path) {
+      if (seen.add(path)) {
+        fallback.add(path);
+      }
+    }
+
+    for (var index = 0; index < kTutorialImageCount; index++) {
+      addPath('assets/tutorial/tutorial_${index + 1}.png');
+      addPath('assets/tutorial_${index + 1}.png');
+    }
+
+    return fallback;
+  }
+
+  int _compareTutorialAssets(String a, String b) {
+    final int numberA = _extractTutorialIndex(a);
+    final int numberB = _extractTutorialIndex(b);
+    return numberA.compareTo(numberB);
+  }
+
+  int _extractTutorialIndex(String assetPath) {
+    final match = RegExp(r'tutorial_(\d+)', caseSensitive: false).firstMatch(assetPath);
+    if (match == null) {
+      return 0;
+    }
+    return int.tryParse(match.group(1) ?? '') ?? 0;
   }
 
   void _restoreSystemUI() {
@@ -1504,4 +1592,3 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 }
-
