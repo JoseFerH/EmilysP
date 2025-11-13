@@ -941,6 +941,17 @@ class _HomePageState extends State<HomePage> {
                                         : Colors.white24,
                                   ),
                                 ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.blueAccent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
                               ),
                             ],
                           ),
