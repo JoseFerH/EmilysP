@@ -941,7 +941,7 @@ class _HomePageState extends State<HomePage> {
                                         : Colors.white24,
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16),
